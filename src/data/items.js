@@ -17,16 +17,16 @@ export const DECKS = [
   { id: "green", name: "Green Deck", spriteX: 2, spriteY: 2 },
   { id: "yellow", name: "Yellow Deck", spriteX: 1, spriteY: 2 },
   { id: "black", name: "Black Deck", spriteX: 3, spriteY: 2 },
-  { id: "erratic", name: "Erratic Deck", spriteX: 6, spriteY: 2 },
+  { id: "erratic", name: "Erratic Deck", spriteX: 2, spriteY: 3 },
   { id: "plasma", name: "Plasma Deck", spriteX: 4, spriteY: 2 },
-  { id: "anaglyph", name: "Anaglyph Deck", spriteX: 0, spriteY: 3 },
-  { id: "painted", name: "Painted Deck", spriteX: 4, spriteY: 1 },
-  { id: "zodiac", name: "Zodiac Deck", spriteX: 6, spriteY: 0 },
+  { id: "anaglyph", name: "Anaglyph Deck", spriteX: 2, spriteY: 4 },
+  { id: "painted", name: "Painted Deck", spriteX: 4, spriteY: 3 },
+  { id: "zodiac", name: "Zodiac Deck", spriteX: 3, spriteY: 4 },
   { id: "checkered", name: "Checkered Deck", spriteX: 1, spriteY: 3 },
-  { id: "abandoned", name: "Abandoned Deck", spriteX: 5, spriteY: 0 },
-  { id: "ghost", name: "Ghost Deck", spriteX: 4, spriteY: 0 },
+  { id: "abandoned", name: "Abandoned Deck", spriteX: 3, spriteY: 3 },
+  { id: "ghost", name: "Ghost Deck", spriteX: 6, spriteY: 2 },
   { id: "nebula", name: "Nebula Deck", spriteX: 3, spriteY: 0 },
-  { id: "magic", name: "Magic Deck", spriteX: 5, spriteY: 2 },
+  { id: "magic", name: "Magic Deck", spriteX: 0, spriteY: 3 },
 ];
 
 // Chip sprite sheet (chips.png): 290 x 116 px
