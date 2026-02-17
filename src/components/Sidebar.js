@@ -252,14 +252,8 @@ export default function Sidebar({
                 />
                 {/* Mini sprite preview */}
                 {mode === "stakes" ? (
-                  <ChipSprite chipX={item.chipX} size={26} />
-                ) : (
-                  <DeckSprite
-                    spriteX={item.spriteX}
-                    spriteY={item.spriteY}
-                    width={18}
-                  />
-                )}
+                  <ChipSprite chipX={item.chipX} chipY={item.chipY} size={26} />
+                ) : null}
                 <span
                   style={{
                     fontSize: 15,
@@ -304,9 +298,7 @@ export default function Sidebar({
                 >
                   {mode === "stakes" ? (
                     <ChipSprite chipX={9} size={22} isWildcard />
-                  ) : (
-                    <DeckSprite spriteX={6} spriteY={3} width={15} isWildcard />
-                  )}
+                  ) : null}
                   <span style={{ flex: 1, fontSize: 14, color: "#bb8fce" }}>
                     {name}
                   </span>

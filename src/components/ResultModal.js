@@ -87,7 +87,8 @@ export default function ResultModal({ result, mode, onClose }) {
         >
           {mode === "stakes" ? (
             <ChipSprite
-              chipX={result.custom ? 9 : result.chipX}
+              chipX={result.custom ? 4 : result.chipX}
+              chipY={result.custom ? 1 : result.chipY}
               size={130}
               isWildcard={result.custom}
             />

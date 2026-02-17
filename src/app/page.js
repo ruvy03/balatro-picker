@@ -16,7 +16,6 @@ export default function Home() {
   const [customStakes, setCustomStakes] = useState([]);
   const [customDecks, setCustomDecks] = useState([]);
   const [result, setResult] = useState(null);
-  const [spinning, setSpinning] = useState(false);
   const [history, setHistory] = useState([]);
 
   const toggleStake = useCallback((id) => {
@@ -153,8 +152,6 @@ export default function Home() {
             items={currentItems}
             mode={mode}
             onResult={handleResult}
-            spinning={spinning}
-            setSpinning={setSpinning}
           />
         ) : (
           <div
@@ -174,7 +171,7 @@ export default function Home() {
         )}
 
         {/* Last result display */}
-        {result && !spinning && (
+        {result && (
           <div
             style={{
               marginTop: 20,
@@ -190,7 +187,8 @@ export default function Home() {
           >
             {mode === "stakes" ? (
               <ChipSprite
-                chipX={result.custom ? 9 : result.chipX}
+                chipX={result.custom ? 4 : result.chipX}
+                chipY={result.custom ? 1 : result.chipY}
                 size={48}
                 isWildcard={result.custom}
               />
@@ -221,7 +219,7 @@ export default function Home() {
 
       {/* Result modal */}
       <ResultModal
-        result={spinning ? null : result}
+        result={result}
         mode={mode}
         onClose={() => setResult(null)}
       />

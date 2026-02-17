@@ -1,11 +1,15 @@
 "use client";
-import { DECK_COLS, DECK_SPRITE_H, DECK_SPRITE_W } from "../data/items";
+import {
+  DECK_SHEET_COLS,
+  DECK_SHEET_ROWS,
+  DECK_SPRITE_H,
+  DECK_SPRITE_W,
+} from "../data/items";
 
 /*
   Renders a card back from the decks.png sprite sheet.
   spriteX = column index, spriteY = row index in the sheet.
-  The sheet is 8 columns wide, each cell 128x178 px.
-  For wildcard/custom: uses the question mark sprite (row 3, col 6 or 7).
+  The sheet is 7 columns × 5 rows, each cell 142×190 px.
 */
 export default function DeckSprite({
   spriteX,
@@ -17,10 +21,6 @@ export default function DeckSprite({
   const row = isWildcard ? 3 : spriteY;
   const h = width * (DECK_SPRITE_H / DECK_SPRITE_W);
 
-  // Total sheet dimensions
-  const sheetCols = DECK_COLS;
-  const sheetRows = 6; // approximate rows visible in Image 1
-
   return (
     <div
       style={{
@@ -28,7 +28,7 @@ export default function DeckSprite({
         height: h,
         flexShrink: 0,
         backgroundImage: "url(/sprites/decks.png)",
-        backgroundSize: `${sheetCols * width}px ${sheetRows * h}px`,
+        backgroundSize: `${DECK_SHEET_COLS * width}px ${DECK_SHEET_ROWS * h}px`,
         backgroundPosition: `-${col * width}px -${row * h}px`,
         backgroundRepeat: "no-repeat",
         imageRendering: "pixelated",
