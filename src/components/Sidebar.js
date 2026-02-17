@@ -21,6 +21,8 @@ export default function Sidebar({
   removeCustomDeck,
   history,
   activeCount,
+  musicEnabled,
+  setMusicEnabled,
 }) {
   const [newCustom, setNewCustom] = useState("");
 
@@ -160,6 +162,45 @@ export default function Sidebar({
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Music toggle */}
+        <div
+          style={{
+            padding: "10px 18px",
+            borderBottom: "1px solid var(--border-subtle)",
+          }}
+        >
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              cursor: "pointer",
+              fontSize: 15,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={musicEnabled}
+              onChange={(e) => setMusicEnabled(e.target.checked)}
+              style={{
+                accentColor: "var(--accent-red)",
+                width: 16,
+                height: 16,
+                cursor: "pointer",
+              }}
+            />
+            <span
+              style={{
+                color: musicEnabled
+                  ? "var(--text-primary)"
+                  : "var(--text-muted)",
+              }}
+            >
+              {musicEnabled ? "🔊" : "🔇"} Music
+            </span>
+          </label>
         </div>
 
         {/* Items list */}

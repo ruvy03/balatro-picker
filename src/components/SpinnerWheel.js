@@ -1,54 +1,30 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Wheel } from "spin-wheel";
-import {
-  CHIP_SPRITE_H,
-  CHIP_SPRITE_W,
-  DECK_COLORS,
-  DECK_SHEET_COLS,
-  DECK_SHEET_ROWS,
-  DECK_SPRITE_H,
-  DECK_SPRITE_W,
-  STAKE_COLORS,
-} from "../data/items";
-
-function cropSprite(srcImg, sx, sy, sw, sh) {
-  return new Promise((resolve) => {
-    const c = document.createElement("canvas");
-    c.width = sw;
-    c.height = sh;
-    const ctx = c.getContext("2d");
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, sw, sh);
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.src = c.toDataURL();
-  });
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed to load: ${src}`));
-    img.src = src;
-  });
-}
+import { DECK_COLORS, STAKE_COLORS } from "../data/items";
 
 function easeCubicOut(n) {
   return 1 - Math.pow(1 - n, 3);
 }
 
-export default function SpinnerWheel({ items, mode, onResult }) {
+export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
   const containerRef = useRef(null);
   const wheelRef = useRef(null);
   const spinningRef = useRef(false);
   const [spinning, setSpinningState] = useState(false);
   const [ready, setReady] = useState(false);
 
-  // Keep stable refs for callbacks
   const itemsRef = useRef(items);
   const onResultRef = useRef(onResult);
+  const musicEnabledRef = useRef(musicEnabled);
+
+  // Web Audio API refs
+  const audioCtxRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const spinSourceRef = useRef(null);
+  const spinBufferRef = useRef(null);
+  const winAudioRef = useRef(null);
+  const fadeTimeoutRef = useRef(null);
 
   useEffect(() => {
     itemsRef.current = items;
@@ -56,87 +32,137 @@ export default function SpinnerWheel({ items, mode, onResult }) {
   useEffect(() => {
     onResultRef.current = onResult;
   }, [onResult]);
+  useEffect(() => {
+    musicEnabledRef.current = musicEnabled;
+  }, [musicEnabled]);
 
-  // Build wheel items with colors and cropped sprite images
-  const buildWheelItems = useCallback(async (curItems, curMode) => {
-    let chipSheet = null;
-    let deckSheet = null;
+  // Preload audio
+  useEffect(() => {
+    // Win sound — simple HTML audio is fine
+    winAudioRef.current = new Audio("/win.ogg");
+    winAudioRef.current.preload = "auto";
 
-    try {
-      chipSheet = await loadImage("/sprites/chips.png");
-    } catch (e) {}
-    try {
-      deckSheet = await loadImage("/sprites/decks.png");
-    } catch (e) {}
+    // Spin music — load into Web Audio API buffer for gain control
+    const loadSpinAudio = async () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtxRef.current = ctx;
 
-    const wheelItems = [];
+        const gainNode = ctx.createGain();
+        gainNode.connect(ctx.destination);
+        gainNodeRef.current = gainNode;
 
-    for (const item of curItems) {
-      const entry = { label: item.name, value: item };
-      let img = null;
+        const resp = await fetch("/music2.mp3");
+        const arrayBuf = await resp.arrayBuffer();
+        const audioBuf = await ctx.decodeAudioData(arrayBuf);
+        spinBufferRef.current = audioBuf;
+      } catch (e) {
+        console.warn("Failed to load spin audio:", e);
+      }
+    };
 
+    loadSpinAudio();
+
+    return () => {
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+      }
+    };
+  }, []);
+
+  const stopSpinAudio = useCallback(() => {
+    if (fadeTimeoutRef.current) {
+      clearTimeout(fadeTimeoutRef.current);
+      fadeTimeoutRef.current = null;
+    }
+    if (spinSourceRef.current) {
+      try {
+        spinSourceRef.current.stop();
+      } catch (e) {}
+      spinSourceRef.current = null;
+    }
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.cancelScheduledValues(0);
+      gainNodeRef.current.gain.value = 1;
+    }
+  }, []);
+
+  const playSpinAudio = useCallback(
+    (duration) => {
+      const ctx = audioCtxRef.current;
+      const buffer = spinBufferRef.current;
+      const gainNode = gainNodeRef.current;
+      if (!ctx || !buffer || !gainNode) return;
+
+      // Resume context if suspended (browser autoplay policy)
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      stopSpinAudio();
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gainNode);
+
+      // Start at full volume
+      gainNode.gain.setValueAtTime(1, ctx.currentTime);
+
+      // Fade out over the last 2 seconds
+      const fadeStart = Math.max(0, duration / 1000 - 2);
+      gainNode.gain.setValueAtTime(1, ctx.currentTime + fadeStart);
+      gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + fadeStart + 2);
+
+      source.start(0);
+      spinSourceRef.current = source;
+
+      // Auto-stop source after duration + small buffer
+      fadeTimeoutRef.current = setTimeout(() => {
+        stopSpinAudio();
+      }, duration + 500);
+    },
+    [stopSpinAudio],
+  );
+
+  // Stop audio if music gets disabled mid-spin
+  useEffect(() => {
+    if (!musicEnabled) {
+      stopSpinAudio();
+    }
+  }, [musicEnabled, stopSpinAudio]);
+
+  const getLabel = (item) => {
+    return item.name.replace(/ Deck$/i, "").replace(/ Stake$/i, "");
+  };
+
+  const buildWheelItems = useCallback((curItems, curMode) => {
+    return curItems.map((item) => {
+      const entry = { label: getLabel(item), value: item };
       if (curMode === "stakes") {
         const c = item.custom
           ? { bg: "#5b2c8e", dark: "#3d1b61" }
           : STAKE_COLORS[item.id] || { bg: "#888", dark: "#555" };
         entry.backgroundColor = c.bg;
         entry.labelColor = "#fff";
-        if (chipSheet && !item.custom) {
-          try {
-            const col = item.chipX ?? 0;
-            const row = item.chipY ?? 0;
-            img = await cropSprite(
-              chipSheet,
-              col * CHIP_SPRITE_W,
-              row * CHIP_SPRITE_H,
-              CHIP_SPRITE_W,
-              CHIP_SPRITE_H,
-            );
-          } catch (e) {}
-        }
       } else {
         const c = item.custom
           ? { bg: "#5b2c8e", dark: "#3d1b61" }
           : DECK_COLORS[item.id] || { bg: "#888", dark: "#555" };
         entry.backgroundColor = c.bg;
         entry.labelColor = "#fff";
-        if (deckSheet && !item.custom) {
-          try {
-            const col = item.spriteX ?? 0;
-            const row = item.spriteY ?? 0;
-            img = await cropSprite(
-              deckSheet,
-              col * DECK_SPRITE_W,
-              row * DECK_SPRITE_H,
-              DECK_SPRITE_W,
-              DECK_SPRITE_H,
-            );
-          } catch (e) {}
-        }
       }
-
-      if (img && curMode === "stakes") {
-        entry.image = img;
-        entry.imageRadius = 0.42;
-        entry.imageScale = Math.min(0.35, 2.5 / curItems.length);
-      }
-
-      wheelItems.push(entry);
-    }
-
-    return wheelItems;
+      return entry;
+    });
   }, []);
 
-  // Create / recreate the wheel when items or mode change
   useEffect(() => {
     if (!containerRef.current) return;
     let cancelled = false;
 
-    const setup = async () => {
-      const wheelItems = await buildWheelItems(items, mode);
+    const setup = () => {
+      const wheelItems = buildWheelItems(items, mode);
       if (cancelled) return;
 
-      // Destroy previous wheel
       if (wheelRef.current) {
         try {
           wheelRef.current.remove();
@@ -144,15 +170,14 @@ export default function SpinnerWheel({ items, mode, onResult }) {
         wheelRef.current = null;
       }
 
-      // Clear the container
       containerRef.current.innerHTML = "";
 
       const props = {
         items: wheelItems,
         itemLabelFont: "m6x11plus, Courier New, monospace",
-        itemLabelFontSizeMax: Math.min(22, Math.floor(360 / items.length)),
-        itemLabelRadius: 0.78,
-        itemLabelRadiusMax: 0.35,
+        itemLabelFontSizeMax: Math.min(32, Math.floor(480 / items.length)),
+        itemLabelRadius: 0.82,
+        itemLabelRadiusMax: 0.45,
         itemLabelAlign: "right",
         itemLabelColors: ["#fff"],
         itemLabelStrokeColor: "#000",
@@ -166,11 +191,18 @@ export default function SpinnerWheel({ items, mode, onResult }) {
         pointerAngle: 0,
         rotationResistance: -55,
         rotationSpeedMax: 800,
-        isInteractive: false, // disable drag — button only
+        isInteractive: false,
         pixelRatio: 0,
         onRest: (e) => {
           spinningRef.current = false;
           setSpinningState(false);
+
+          // Play win sound
+          if (musicEnabledRef.current && winAudioRef.current) {
+            winAudioRef.current.currentTime = 0;
+            winAudioRef.current.play().catch(() => {});
+          }
+
           const idx = e.currentIndex;
           const ci = itemsRef.current;
           if (ci && ci[idx]) {
@@ -194,10 +226,15 @@ export default function SpinnerWheel({ items, mode, onResult }) {
         } catch (e) {}
         wheelRef.current = null;
       }
+      // Reset spinning state if wheel gets destroyed mid-spin
+      if (spinningRef.current) {
+        spinningRef.current = false;
+        setSpinningState(false);
+        stopSpinAudio();
+      }
     };
-  }, [items, mode, buildWheelItems]);
+  }, [items, mode, buildWheelItems, stopSpinAudio]);
 
-  // Spin handler — uses refs only, no state in dependency
   const spin = useCallback(() => {
     if (spinningRef.current) return;
     const wheel = wheelRef.current;
@@ -207,16 +244,20 @@ export default function SpinnerWheel({ items, mode, onResult }) {
     spinningRef.current = true;
     setSpinningState(true);
 
-    // Cryptographically fair random index
+    const duration = 4000 + Math.random() * 2000;
+    const revolutions = 6 + Math.floor(Math.random() * 4);
+
+    // Play spin music with fade-out timed to duration
+    if (musicEnabledRef.current) {
+      playSpinAudio(duration);
+    }
+
     const arr = new Uint32Array(1);
     crypto.getRandomValues(arr);
     const targetIdx = arr[0] % count;
 
-    const duration = 4000 + Math.random() * 2000;
-    const revolutions = 6 + Math.floor(Math.random() * 4);
-
     wheel.spinToItem(targetIdx, duration, false, revolutions, 1, easeCubicOut);
-  }, []);
+  }, [playSpinAudio]);
 
   const count = items.length;
 
@@ -226,10 +267,9 @@ export default function SpinnerWheel({ items, mode, onResult }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 24,
+        gap: 0,
       }}
     >
-      {/* Pointer triangle at top */}
       <div
         style={{
           width: 0,
@@ -239,7 +279,7 @@ export default function SpinnerWheel({ items, mode, onResult }) {
           borderTop: "30px solid #e74c3c",
           filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.5))",
           zIndex: 10,
-          marginBottom: -8,
+          marginBottom: -4,
           position: "relative",
         }}
       >
@@ -257,7 +297,6 @@ export default function SpinnerWheel({ items, mode, onResult }) {
         />
       </div>
 
-      {/* Wheel container — fixed size, never re-rendered by React */}
       <div
         ref={containerRef}
         style={{
@@ -271,11 +310,11 @@ export default function SpinnerWheel({ items, mode, onResult }) {
         }}
       />
 
-      {/* Spin button */}
       <button
         onClick={spin}
         disabled={spinning || count < 2}
         style={{
+          marginTop: 24,
           padding: "14px 56px",
           fontSize: 24,
           fontFamily: "var(--font-balatro)",

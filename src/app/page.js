@@ -17,6 +17,7 @@ export default function Home() {
   const [customDecks, setCustomDecks] = useState([]);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
+  const [musicEnabled, setMusicEnabled] = useState(true);
 
   const toggleStake = useCallback((id) => {
     setDisabledStakes((d) => ({ ...d, [id]: !d[id] }));
@@ -101,6 +102,8 @@ export default function Home() {
         removeCustomDeck={removeCustomDeck}
         history={history}
         activeCount={currentItems.length}
+        musicEnabled={musicEnabled}
+        setMusicEnabled={setMusicEnabled}
       />
 
       {/* Main content area */}
@@ -152,6 +155,7 @@ export default function Home() {
             items={currentItems}
             mode={mode}
             onResult={handleResult}
+            musicEnabled={musicEnabled}
           />
         ) : (
           <div
