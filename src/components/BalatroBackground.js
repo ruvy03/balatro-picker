@@ -1,10 +1,97 @@
 "use client";
 import { useEffect, useRef } from "react";
 
-/*
-  Balatro-style CRT / psychedelic background using a canvas shader-like approach.
-  Draws animated swirling dark colors similar to the Balatro menu screen.
-*/
+const VERTEX_SHADER = `
+  attribute vec2 a_position;
+  void main() {
+    gl_Position = vec4(a_position, 0.0, 1.0);
+  }
+`;
+
+const FRAGMENT_SHADER = `
+  precision mediump float;
+  uniform float iTime;
+  uniform vec2 iResolution;
+
+  #define SPIN_ROTATION -2.0
+  #define SPIN_SPEED 7.0
+  #define OFFSET vec2(0.0)
+  #define COLOUR_1 vec4(0.871, 0.267, 0.231, 1.0)
+  #define COLOUR_2 vec4(0.0, 0.42, 0.706, 1.0)
+  #define COLOUR_3 vec4(0.086, 0.137, 0.145, 1.0)
+  #define CONTRAST 3.5
+  #define LIGTHING 0.4
+  #define SPIN_AMOUNT 0.25
+  #define PIXEL_FILTER 745.0
+  #define SPIN_EASE 1.0
+  #define PI 3.14159265359
+  #define IS_ROTATE false
+
+  vec4 effect(vec2 screenSize, vec2 screen_coords) {
+    float pixel_size = length(screenSize.xy) / PIXEL_FILTER;
+    vec2 uv = (floor(screen_coords.xy*(1./pixel_size))*pixel_size - 0.5*screenSize.xy)/length(screenSize.xy) - OFFSET;
+    float uv_len = length(uv);
+
+    float speed = (SPIN_ROTATION*SPIN_EASE*0.2);
+    if(IS_ROTATE){
+       speed = iTime * speed;
+    }
+    speed += 302.2;
+    float new_pixel_angle = atan(uv.y, uv.x) + speed - SPIN_EASE*20.*(1.*SPIN_AMOUNT*uv_len + (1. - 1.*SPIN_AMOUNT));
+    vec2 mid = (screenSize.xy/length(screenSize.xy))/2.;
+    uv = (vec2((uv_len * cos(new_pixel_angle) + mid.x), (uv_len * sin(new_pixel_angle) + mid.y)) - mid);
+
+    uv *= 30.;
+    speed = iTime*(SPIN_SPEED);
+    vec2 uv2 = vec2(uv.x+uv.y);
+
+    for(int i=0; i < 5; i++) {
+        uv2 += sin(max(uv.x, uv.y)) + uv;
+        uv  += 0.5*vec2(cos(5.1123314 + 0.353*uv2.y + speed*0.131121),sin(uv2.x - 0.113*speed));
+        uv  -= 1.0*cos(uv.x + uv.y) - 1.0*sin(uv.x*0.711 - uv.y);
+    }
+
+    float contrast_mod = (0.25*CONTRAST + 0.5*SPIN_AMOUNT + 1.2);
+    float paint_res = min(2., max(0.,length(uv)*(0.035)*contrast_mod));
+    float c1p = max(0.,1. - contrast_mod*abs(1.-paint_res));
+    float c2p = max(0.,1. - contrast_mod*abs(paint_res));
+    float c3p = 1. - min(1., c1p + c2p);
+    float light = (LIGTHING - 0.2)*max(c1p*5. - 4., 0.) + LIGTHING*max(c2p*5. - 4., 0.);
+    return (0.3/CONTRAST)*COLOUR_1 + (1. - 0.3/CONTRAST)*(COLOUR_1*c1p + COLOUR_2*c2p + vec4(c3p*COLOUR_3.rgb, c3p*COLOUR_1.a)) + light;
+  }
+
+  void main() {
+    vec2 fragCoord = gl_FragCoord.xy;
+    fragCoord.y = iResolution.y - fragCoord.y;
+    gl_FragColor = effect(iResolution.xy, fragCoord);
+  }
+`;
+
+function createShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error("Shader compile error:", gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+function createProgram(gl, vs, fs) {
+  const program = gl.createProgram();
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error("Program link error:", gl.getProgramInfoLog(program));
+    gl.deleteProgram(program);
+    return null;
+  }
+  return program;
+}
+
 export default function BalatroBackground() {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
@@ -12,96 +99,69 @@ export default function BalatroBackground() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    let t = 0;
+
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+    if (!gl) {
+      console.warn("WebGL not supported");
+      return;
+    }
+
+    const vs = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+    const fs = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+    if (!vs || !fs) return;
+
+    const program = createProgram(gl, vs, fs);
+    if (!program) return;
+
+    // Full-screen quad
+    const posBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+      gl.STATIC_DRAW,
+    );
+
+    const posLoc = gl.getAttribLocation(program, "a_position");
+    const timeLoc = gl.getUniformLocation(program, "iTime");
+    const resLoc = gl.getUniformLocation(program, "iResolution");
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      gl.viewport(0, 0, canvas.width, canvas.height);
     };
     resize();
     window.addEventListener("resize", resize);
 
-    const draw = () => {
-      const W = canvas.width,
-        H = canvas.height;
-      // Scale down for performance - draw at 1/4 res then upscale
-      const scale = 4;
-      const sw = Math.ceil(W / scale),
-        sh = Math.ceil(H / scale);
+    const startTime = performance.now();
 
-      const offscreen = document.createElement("canvas");
-      offscreen.width = sw;
-      offscreen.height = sh;
-      const octx = offscreen.getContext("2d");
-      const imgData = octx.createImageData(sw, sh);
-      const d = imgData.data;
+    const render = () => {
+      const t = (performance.now() - startTime) / 1000;
 
-      for (let y = 0; y < sh; y++) {
-        for (let x = 0; x < sw; x++) {
-          const u = x / sw - 0.5;
-          const v = y / sh - 0.5;
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
-          // Swirling noise-like pattern
-          const angle = Math.atan2(v, u);
-          const dist = Math.sqrt(u * u + v * v);
+      gl.uniform1f(timeLoc, t);
+      gl.uniform2f(resLoc, canvas.width, canvas.height);
 
-          const n1 = Math.sin(u * 6 + t * 0.3) * Math.cos(v * 6 + t * 0.2);
-          const n2 = Math.sin((u + v) * 4 - t * 0.25) * 0.5;
-          const n3 = Math.cos(dist * 12 - t * 0.4) * 0.3;
-          const val = (n1 + n2 + n3) * 0.33;
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-          // Dark Balatro palette: deep navy, dark red, near-black
-          const r = Math.floor(
-            12 + (val + 0.5) * 18 + Math.sin(angle + t * 0.1) * 8,
-          );
-          const g = Math.floor(8 + (val + 0.5) * 10);
-          const b = Math.floor(
-            20 + (val + 0.5) * 25 + Math.cos(dist * 8 - t * 0.3) * 10,
-          );
-
-          const idx = (y * sw + x) * 4;
-          d[idx] = Math.max(0, Math.min(40, r));
-          d[idx + 1] = Math.max(0, Math.min(25, g));
-          d[idx + 2] = Math.max(0, Math.min(50, b));
-          d[idx + 3] = 255;
-        }
-      }
-
-      octx.putImageData(imgData, 0, 0);
-
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(offscreen, 0, 0, W, H);
-
-      // CRT scanline overlay
-      ctx.fillStyle = "rgba(0,0,0,0.08)";
-      for (let y = 0; y < H; y += 3) {
-        ctx.fillRect(0, y, W, 1);
-      }
-
-      // Slight vignette
-      const vg = ctx.createRadialGradient(
-        W / 2,
-        H / 2,
-        W * 0.2,
-        W / 2,
-        H / 2,
-        W * 0.75,
-      );
-      vg.addColorStop(0, "rgba(0,0,0,0)");
-      vg.addColorStop(1, "rgba(0,0,0,0.5)");
-      ctx.fillStyle = vg;
-      ctx.fillRect(0, 0, W, H);
-
-      t += 0.016;
-      animRef.current = requestAnimationFrame(draw);
+      animRef.current = requestAnimationFrame(render);
     };
 
-    draw();
+    render();
 
     return () => {
       window.removeEventListener("resize", resize);
       if (animRef.current) cancelAnimationFrame(animRef.current);
+      gl.deleteProgram(program);
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      gl.deleteBuffer(posBuffer);
     };
   }, []);
 
@@ -113,6 +173,8 @@ export default function BalatroBackground() {
         inset: 0,
         zIndex: 0,
         pointerEvents: "none",
+        width: "100%",
+        height: "100%",
       }}
     />
   );
