@@ -1,11 +1,12 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import BalatroBackground from "../components/BalatroBackground";
 import ChipSprite from "../components/ChipSprite";
 import DeckSprite from "../components/DeckSprite";
 import ResultModal from "../components/ResultModal";
 import Sidebar from "../components/Sidebar";
 import SpinnerWheel from "../components/SpinnerWheel";
+import Toast from "../components/Toast";
 import { DECKS, STAKES } from "../data/items";
 
 export default function Home() {
@@ -17,7 +18,19 @@ export default function Home() {
   const [customDecks, setCustomDecks] = useState([]);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
-  const [musicEnabled, setMusicEnabled] = useState(true);
+  const [musicEnabled, setMusicEnabled] = useState(false);
+  const [backgroundStyle, setBackgroundStyle] = useState("shader");
+  const [toastVisible, setToastVisible] = useState(true);
+  const [toastClosing, setToastClosing] = useState(false);
+
+  useEffect(() => {
+    const closeTimer = setTimeout(() => setToastClosing(true), 3000);
+    const removeTimer = setTimeout(() => setToastVisible(false), 3350);
+    return () => {
+      clearTimeout(closeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, []);
 
   const toggleStake = useCallback((id) => {
     setDisabledStakes((d) => ({ ...d, [id]: !d[id] }));
@@ -43,23 +56,31 @@ export default function Home() {
     setCustomDecks((c) => c.filter((n) => n !== name));
   }, []);
 
-  // Build active items lists
-  const activeStakes = [
-    ...STAKES.filter((s) => !disabledStakes[s.id]),
-    ...customStakes.map((name) => ({
-      id: `custom-${name}`,
-      name,
-      custom: true,
-    })),
-  ];
-  const activeDecks = [
-    ...DECKS.filter((d) => !disabledDecks[d.id]),
-    ...customDecks.map((name) => ({
-      id: `custom-${name}`,
-      name,
-      custom: true,
-    })),
-  ];
+  // Build active items lists — memoized so SpinnerWheel's `items` prop keeps
+  // a stable reference across unrelated re-renders (e.g. the toast timer),
+  // otherwise its setup effect tears down and rebuilds the wheel mid-spin.
+  const activeStakes = useMemo(
+    () => [
+      ...STAKES.filter((s) => !disabledStakes[s.id]),
+      ...customStakes.map((name) => ({
+        id: `custom-${name}`,
+        name,
+        custom: true,
+      })),
+    ],
+    [disabledStakes, customStakes],
+  );
+  const activeDecks = useMemo(
+    () => [
+      ...DECKS.filter((d) => !disabledDecks[d.id]),
+      ...customDecks.map((name) => ({
+        id: `custom-${name}`,
+        name,
+        custom: true,
+      })),
+    ],
+    [disabledDecks, customDecks],
+  );
 
   const currentItems = mode === "stakes" ? activeStakes : activeDecks;
 
@@ -83,7 +104,7 @@ export default function Home() {
         position: "relative",
       }}
     >
-      <BalatroBackground />
+      <BalatroBackground variant={backgroundStyle} />
 
       <Sidebar
         isOpen={sidebarOpen}
@@ -104,6 +125,8 @@ export default function Home() {
         activeCount={currentItems.length}
         musicEnabled={musicEnabled}
         setMusicEnabled={setMusicEnabled}
+        backgroundStyle={backgroundStyle}
+        setBackgroundStyle={setBackgroundStyle}
       />
 
       {/* Main content area */}
@@ -138,12 +161,14 @@ export default function Home() {
             marginBottom: 28,
             letterSpacing: 4,
             background:
-              "linear-gradient(135deg, #e74c3c 0%, #ff6b5a 40%, #3498db 60%, #5dade2 100%)",
+              "linear-gradient(135deg, #e74c3c 0%, #ff6b5a 25%, #fff3c4 50%, #3498db 75%, #5dade2 100%)",
+            backgroundSize: "200% auto",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
             textShadow: "none",
             lineHeight: 1.2,
+            animation: "shimmer 5s linear infinite",
           }}
         >
           MAJOR LEAGUE BALATRO
@@ -187,6 +212,7 @@ export default function Home() {
               borderRadius: 14,
               border: "1px solid var(--border-light)",
               backdropFilter: "blur(10px)",
+              boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
             }}
           >
             {mode === "stakes" ? (
@@ -227,6 +253,8 @@ export default function Home() {
         mode={mode}
         onClose={() => setResult(null)}
       />
+
+      <Toast visible={toastVisible} closing={toastClosing} />
     </div>
   );
 }

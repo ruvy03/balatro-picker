@@ -1,4 +1,5 @@
 "use client";
+import confetti from "canvas-confetti";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Wheel } from "spin-wheel";
 import { DECK_COLORS, STAKE_COLORS } from "../data/items";
@@ -7,12 +8,27 @@ function easeCubicOut(n) {
   return 1 - Math.pow(1 - n, 3);
 }
 
+const BULB_COUNT = 18;
+const BULB_ANGLES = Array.from(
+  { length: BULB_COUNT },
+  (_, i) => (360 / BULB_COUNT) * i,
+);
+
+function getItemColor(item, mode) {
+  if (item.custom) return "#9b59b6";
+  const table = mode === "stakes" ? STAKE_COLORS : DECK_COLORS;
+  return table[item.id]?.bg || "#e74c3c";
+}
+
 export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
   const containerRef = useRef(null);
   const wheelRef = useRef(null);
+  const pointerRef = useRef(null);
   const spinningRef = useRef(false);
   const [spinning, setSpinningState] = useState(false);
   const [ready, setReady] = useState(false);
+  const [flashColor, setFlashColor] = useState(null);
+  const flashTimeoutRef = useRef(null);
 
   const itemsRef = useRef(items);
   const onResultRef = useRef(onResult);
@@ -67,6 +83,13 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
       if (audioCtxRef.current) {
         audioCtxRef.current.close().catch(() => {});
       }
+    };
+  }, []);
+
+  // Clear any pending flash timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
     };
   }, []);
 
@@ -131,6 +154,28 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
     }
   }, [musicEnabled, stopSpinAudio]);
 
+  // Confetti burst centered on the wheel, colored to match the winning item
+  const fireConfetti = useCallback((colorHex) => {
+    const el = containerRef.current;
+    if (!el || typeof window === "undefined") return;
+    const rect = el.getBoundingClientRect();
+    const origin = {
+      x: (rect.left + rect.width / 2) / window.innerWidth,
+      y: (rect.top + rect.height / 2) / window.innerHeight,
+    };
+    confetti({
+      particleCount: 110,
+      spread: 100,
+      startVelocity: 45,
+      gravity: 0.9,
+      scalar: 0.9,
+      ticks: 220,
+      origin,
+      colors: [colorHex, "#ffffff", "#f1c40f"],
+      zIndex: 1500,
+    });
+  }, []);
+
   const getLabel = (item) => {
     return item.name.replace(/ Deck$/i, "").replace(/ Stake$/i, "");
   };
@@ -193,6 +238,13 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
         rotationSpeedMax: 800,
         isInteractive: false,
         pixelRatio: 0,
+        onCurrentIndexChange: () => {
+          const el = pointerRef.current;
+          if (!el) return;
+          el.classList.remove("tick-punch");
+          void el.offsetWidth;
+          el.classList.add("tick-punch");
+        },
         onRest: (e) => {
           spinningRef.current = false;
           setSpinningState(false);
@@ -205,8 +257,14 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
 
           const idx = e.currentIndex;
           const ci = itemsRef.current;
-          if (ci && ci[idx]) {
-            onResultRef.current(ci[idx]);
+          const item = ci && ci[idx];
+          if (item) {
+            const color = getItemColor(item, mode);
+            fireConfetti(color);
+            setFlashColor(color);
+            if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+            flashTimeoutRef.current = setTimeout(() => setFlashColor(null), 700);
+            onResultRef.current(item);
           }
         },
       };
@@ -233,7 +291,7 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
         stopSpinAudio();
       }
     };
-  }, [items, mode, buildWheelItems, stopSpinAudio]);
+  }, [items, mode, buildWheelItems, stopSpinAudio, fireConfetti]);
 
   const spin = useCallback(() => {
     if (spinningRef.current) return;
@@ -260,6 +318,7 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
   }, [playSpinAudio]);
 
   const count = items.length;
+  const glowColor = mode === "stakes" ? "231,76,60" : "52,152,219";
 
   return (
     <div
@@ -272,71 +331,176 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
     >
       <div
         style={{
-          width: 0,
-          height: 0,
-          borderLeft: "18px solid transparent",
-          borderRight: "18px solid transparent",
-          borderTop: "30px solid #e74c3c",
-          filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.5))",
-          zIndex: 10,
-          marginBottom: -4,
           position: "relative",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            top: -28,
-            left: -8,
-            width: 0,
-            height: 0,
-            borderLeft: "8px solid transparent",
-            borderRight: "8px solid transparent",
-            borderTop: "20px solid rgba(255,255,255,0.2)",
-          }}
-        />
-      </div>
-
-      <div
-        ref={containerRef}
-        style={{
           width: 480,
           height: 480,
           maxWidth: "85vw",
           maxHeight: "55vh",
           aspectRatio: "1 / 1",
-          filter: "drop-shadow(0 0 40px rgba(0,0,0,0.5))",
-          position: "relative",
+          animation: "popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
         }}
-      />
+      >
+        {/* Ambient glow behind the wheel, colored by mode */}
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "92%",
+            height: "92%",
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "50%",
+              background: `radial-gradient(circle, rgba(${glowColor},0.55) 0%, rgba(${glowColor},0.15) 55%, transparent 75%)`,
+              filter: "blur(6px)",
+              animation: "wheelGlowPulse 3s ease-in-out infinite",
+            }}
+          />
+        </div>
+
+        {/* Dark rim housing so the marquee lights read clearly against the busy background */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            border: "16px solid rgba(15, 12, 10, 0.6)",
+            boxShadow:
+              "inset 0 0 24px rgba(0,0,0,0.65), 0 4px 18px rgba(0,0,0,0.5)",
+            zIndex: 2,
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Marquee light bulbs ringing the wheel */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 3,
+            pointerEvents: "none",
+          }}
+        >
+          {BULB_ANGLES.map((angle, i) => (
+            <div
+              key={i}
+              style={{ position: "absolute", inset: 0, transform: `rotate(${angle}deg)` }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                }}
+              >
+                <div
+                  className="wheel-bulb"
+                  style={{
+                    width: 11,
+                    height: 11,
+                    background: i % 2 === 0 ? "#f9e79f" : "#f1c40f",
+                    boxShadow: `0 0 10px 3px ${
+                      i % 2 === 0 ? "rgba(249,231,159,0.9)" : "rgba(241,196,15,0.9)"
+                    }`,
+                    animationDelay: `${i * 0.09}s`,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Wheel canvas mount */}
+        <div
+          ref={containerRef}
+          style={{
+            position: "absolute",
+            inset: "8%",
+            zIndex: 4,
+            filter: "drop-shadow(0 0 30px rgba(0,0,0,0.55))",
+          }}
+        />
+
+        {/* Center hub cap */}
+        <div
+          className="wheel-hub"
+          style={{
+            width: "17%",
+            height: "17%",
+            background:
+              "radial-gradient(circle at 35% 30%, #fff6d0 0%, #f1c40f 35%, #b8860b 75%, #7a5c08 100%)",
+            boxShadow:
+              "0 3px 10px rgba(0,0,0,0.55), inset 0 2px 3px rgba(255,255,255,0.6), inset 0 -3px 6px rgba(0,0,0,0.4), 0 0 0 3px rgba(0,0,0,0.5)",
+          }}
+        >
+          <img
+            src="/sprites/mlb-logo.png"
+            alt=""
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              imageRendering: "pixelated",
+            }}
+          />
+        </div>
+
+        {/* Pointer */}
+        <div
+          style={{
+            position: "absolute",
+            top: -22,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 20,
+            filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.6))",
+          }}
+        >
+          <div ref={pointerRef} className="pointer-gem" />
+        </div>
+      </div>
 
       <button
         onClick={spin}
         disabled={spinning || count < 2}
+        className={`balatro-btn${!spinning && count >= 2 ? " balatro-btn--pulse" : ""}`}
         style={{
-          marginTop: 24,
+          "--btn-color": "var(--accent-red)",
+          "--btn-shadow": "var(--accent-red-dark)",
+          marginTop: 28,
           padding: "14px 56px",
           fontSize: 24,
           fontFamily: "var(--font-balatro)",
-          fontWeight: "normal",
           letterSpacing: 4,
           textTransform: "uppercase",
-          background: spinning
-            ? "#444"
-            : "linear-gradient(180deg, #e74c3c, #a93226)",
-          color: "#fff",
-          border: spinning ? "2px solid #555" : "2px solid #ff6b5a",
-          borderRadius: 10,
-          cursor: spinning ? "not-allowed" : "pointer",
-          boxShadow: spinning
-            ? "none"
-            : "0 4px 20px rgba(231,76,60,0.4), inset 0 1px 0 rgba(255,255,255,0.2)",
-          transition: "all 0.3s",
-          animation: !spinning && count >= 2 ? "pulseGlow 2s infinite" : "none",
         }}
       >
         {spinning ? "Spinning..." : count < 2 ? "Need 2+ Items" : "SPIN!"}
       </button>
+
+      {/* Full-screen color flash on result */}
+      {flashColor && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 500,
+            pointerEvents: "none",
+            background: `radial-gradient(circle at 50% 45%, ${flashColor} 0%, transparent 70%)`,
+            animation: "resultFlash 0.7s ease-out forwards",
+            mixBlendMode: "screen",
+          }}
+        />
+      )}
     </div>
   );
 }

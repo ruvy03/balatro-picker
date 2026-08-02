@@ -92,11 +92,40 @@ function createProgram(gl, vs, fs) {
   return program;
 }
 
-export default function BalatroBackground() {
+// Fixed (non-random) layout so server/client renders match exactly —
+// keeps these purely decorative, low-opacity, and out of the way of content.
+const FLOATING_SUITS = [
+  { ch: "♠", top: "12%", left: "7%", size: 34, dur: 9, delay: 0, dx: 18, rotA: -8, rotB: 10, color: "rgba(255,255,255,0.09)" },
+  { ch: "♥", top: "70%", left: "5%", size: 26, dur: 7.5, delay: 1.2, dx: -14, rotA: 6, rotB: -8, color: "rgba(231,76,60,0.14)" },
+  { ch: "♦", top: "20%", left: "93%", size: 30, dur: 8.5, delay: 0.6, dx: -18, rotA: 5, rotB: -10, color: "rgba(52,152,219,0.14)" },
+  { ch: "♣", top: "80%", left: "91%", size: 28, dur: 10, delay: 2, dx: 14, rotA: -6, rotB: 9, color: "rgba(255,255,255,0.09)" },
+  { ch: "♠", top: "46%", left: "3%", size: 20, dur: 6.5, delay: 0.3, dx: 10, rotA: 10, rotB: -6, color: "rgba(255,255,255,0.07)" },
+  { ch: "♦", top: "90%", left: "42%", size: 22, dur: 9.5, delay: 1.8, dx: -12, rotA: -5, rotB: 8, color: "rgba(52,152,219,0.1)" },
+  { ch: "♥", top: "6%", left: "58%", size: 24, dur: 8, delay: 2.4, dx: 16, rotA: 7, rotB: -9, color: "rgba(231,76,60,0.1)" },
+  { ch: "♣", top: "58%", left: "96%", size: 20, dur: 7, delay: 0.9, dx: -10, rotA: -9, rotB: 6, color: "rgba(255,255,255,0.07)" },
+];
+
+// Static layered-gradient look modeled on majorleaguebalatro.com's own
+// background: a diagonal base wash plus scattered radial "nebula" blobs.
+// Their original CSS relies on farthest-corner sizing tuned for a much
+// smaller container; explicit percentage sizes keep the blobs reading as
+// distinct glows instead of washing out over a full viewport.
+const NEBULA_BACKGROUND = [
+  "radial-gradient(ellipse 45% 55% at 15% 80%, rgba(30,80,180,0.55), transparent 70%)",
+  "radial-gradient(ellipse 40% 45% at 78% 12%, rgba(170,40,130,0.5), transparent 70%)",
+  "radial-gradient(ellipse 50% 55% at 90% 75%, rgba(150,25,45,0.55), transparent 70%)",
+  "radial-gradient(ellipse 45% 50% at 50% 55%, rgba(25,70,170,0.4), transparent 70%)",
+  "radial-gradient(ellipse 40% 45% at 15% 15%, rgba(15,50,110,0.6), transparent 70%)",
+  "radial-gradient(ellipse 45% 50% at 85% 90%, rgba(130,25,85,0.45), transparent 70%)",
+  "linear-gradient(135deg, #0a1a3a 0%, #1a3a6a 25%, #2a1a4a 50%, #6a1020 75%, #4a0a1a 100%)",
+].join(", ");
+
+export default function BalatroBackground({ variant = "shader" }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
 
   useEffect(() => {
+    if (variant !== "shader") return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -163,19 +192,82 @@ export default function BalatroBackground() {
       gl.deleteShader(fs);
       gl.deleteBuffer(posBuffer);
     };
-  }, []);
+  }, [variant]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 0,
-        pointerEvents: "none",
-        width: "100%",
-        height: "100%",
-      }}
-    />
+    <>
+      {variant === "shader" ? (
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: "none",
+            width: "100%",
+            height: "100%",
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: "none",
+            background: NEBULA_BACKGROUND,
+            animation: "nebulaDrift 20s ease-in-out infinite",
+          }}
+        />
+      )}
+
+      {/* Ambient floating suit glyphs for depth */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+          overflow: "hidden",
+        }}
+      >
+        {FLOATING_SUITS.map((s, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              top: s.top,
+              left: s.left,
+              fontSize: s.size,
+              color: s.color,
+              fontFamily: "var(--font-balatro)",
+              lineHeight: 1,
+              "--dx": `${s.dx}px`,
+              "--rot-a": `${s.rotA}deg`,
+              "--rot-b": `${s.rotB}deg`,
+              animation: `suitDrift ${s.dur}s ease-in-out ${s.delay}s infinite`,
+            }}
+          >
+            {s.ch}
+          </div>
+        ))}
+      </div>
+
+      {/* Vignette to focus attention toward the center — the shader is
+          uniformly bright and needs it, but it would just wash out the
+          nebula variant's own edge-positioned color blobs. */}
+      {variant === "shader" && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: "none",
+            background:
+              "radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(5,5,15,0.35) 75%, rgba(2,2,10,0.62) 100%)",
+          }}
+        />
+      )}
+    </>
   );
 }
