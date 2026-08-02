@@ -40,7 +40,6 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: unset;
-  image-rendering: pixelated;
 }
 
 ::-webkit-scrollbar {
@@ -109,4 +108,243 @@ input::placeholder {
   50% {
     box-shadow: 0 0 40px rgba(231, 76, 60, 0.6);
   }
+}
+
+@keyframes wheelGlowPulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.07);
+  }
+}
+
+@keyframes bulbTwinkle {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes hubSpinIn {
+  from {
+    transform: translate(-50%, -50%) rotate(-220deg) scale(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes resultFlash {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes suitDrift {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(var(--rot-a, -6deg));
+  }
+  50% {
+    transform: translate(var(--dx, 16px), -34px) rotate(var(--rot-b, 8deg));
+  }
+}
+
+@keyframes toastIn {
+  from {
+    transform: translate(-50%, -24px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toastOut {
+  from {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -18px) scale(0.97);
+    opacity: 0;
+  }
+}
+
+@keyframes toastProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* Chunky Balatro-style button: flat color, hard offset shadow that
+   collapses on press — matches the real game's UI language. */
+.balatro-btn {
+  --btn-color: var(--accent-red);
+  --btn-shadow: var(--accent-red-dark);
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--btn-color) 100%, white 15%),
+    var(--btn-color)
+  );
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--font-balatro);
+  box-shadow:
+    0 4px 0 var(--btn-shadow),
+    0 6px 16px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    filter 0.15s ease;
+}
+.balatro-btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+.balatro-btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--btn-shadow);
+}
+.balatro-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6) brightness(0.7);
+}
+.balatro-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.balatro-btn--sm {
+  box-shadow:
+    0 3px 0 var(--btn-shadow),
+    0 4px 10px rgba(0, 0, 0, 0.3);
+}
+.balatro-btn--sm:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--btn-shadow);
+}
+.balatro-btn--ghost {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.4),
+    0 4px 10px rgba(0, 0, 0, 0.25);
+}
+.balatro-btn--ghost:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Pill toggle switch (used for the music control) */
+.toggle-switch {
+  --on-color: var(--accent-red);
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+.toggle-switch[aria-checked="true"] {
+  background: var(--on-color);
+  border-color: var(--on-color);
+}
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.toggle-switch[aria-checked="true"] .toggle-knob {
+  transform: translateX(20px);
+}
+
+.wheel-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 5;
+  pointer-events: none;
+  animation: hubSpinIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+
+.wheel-bulb {
+  border-radius: 50%;
+  animation: bulbTwinkle 1.8s ease-in-out infinite;
+}
+
+.sidebar-row:hover {
+  transform: translateX(3px);
+}
+
+.pointer-bead {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  margin-bottom: -3px;
+  position: relative;
+  z-index: 1;
+  background: radial-gradient(
+    circle at 35% 30%,
+    #fff6d0 0%,
+    #f1c40f 45%,
+    #b8860b 85%,
+    #7a5c08 100%
+  );
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.7);
+}
+
+.pointer-gem {
+  width: 30px;
+  height: 40px;
+  background: linear-gradient(
+    160deg,
+    #ffffff 0%,
+    #eef0f3 30%,
+    #c7cad2 60%,
+    #90939c 100%
+  );
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+  border: 2px solid #f1c40f;
+  box-shadow:
+    inset 2px 2px 5px rgba(255, 255, 255, 0.8),
+    inset -2px -3px 5px rgba(0, 0, 0, 0.18);
 }

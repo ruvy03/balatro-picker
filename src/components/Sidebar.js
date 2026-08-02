@@ -23,6 +23,8 @@ export default function Sidebar({
   activeCount,
   musicEnabled,
   setMusicEnabled,
+  backgroundStyle,
+  setBackgroundStyle,
 }) {
   const [newCustom, setNewCustom] = useState("");
 
@@ -169,38 +171,91 @@ export default function Sidebar({
           style={{
             padding: "10px 18px",
             borderBottom: "1px solid var(--border-subtle)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
-          <label
+          <span
             style={{
+              fontSize: 15,
               display: "flex",
               alignItems: "center",
-              gap: 10,
-              cursor: "pointer",
-              fontSize: 15,
+              gap: 8,
+              color: musicEnabled ? "var(--text-primary)" : "var(--text-muted)",
             }}
           >
-            <input
-              type="checkbox"
-              checked={musicEnabled}
-              onChange={(e) => setMusicEnabled(e.target.checked)}
-              style={{
-                accentColor: "var(--accent-red)",
-                width: 16,
-                height: 16,
-                cursor: "pointer",
-              }}
-            />
-            <span
-              style={{
-                color: musicEnabled
-                  ? "var(--text-primary)"
-                  : "var(--text-muted)",
-              }}
-            >
-              {musicEnabled ? "🔊" : "🔇"} Music
-            </span>
-          </label>
+            {musicEnabled ? "🔊" : "🔇"} Music
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={musicEnabled}
+            onClick={() => setMusicEnabled(!musicEnabled)}
+            className="toggle-switch"
+          >
+            <span className="toggle-knob" />
+          </button>
+        </div>
+
+        {/* Background style toggle */}
+        <div
+          style={{
+            padding: "10px 18px",
+            borderBottom: "1px solid var(--border-subtle)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              marginBottom: 8,
+            }}
+          >
+            Background
+          </div>
+          <div
+            style={{
+              display: "flex",
+              background: "rgba(255,255,255,0.04)",
+              borderRadius: 10,
+              padding: 3,
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
+            {[
+              { id: "shader", label: "Plasma" },
+              { id: "mlba", label: "Nebula" },
+            ].map((opt) => {
+              const active = backgroundStyle === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  onClick={() => setBackgroundStyle(opt.id)}
+                  style={{
+                    flex: 1,
+                    padding: "8px 0",
+                    border: "none",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontFamily: "var(--font-balatro)",
+                    fontSize: 14,
+                    letterSpacing: 1,
+                    transition: "all 0.2s",
+                    background: active
+                      ? "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-dark))"
+                      : "transparent",
+                    color: active ? "#fff" : "var(--text-muted)",
+                    boxShadow: active ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Items list */}
@@ -227,14 +282,14 @@ export default function Sidebar({
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={enableAll}
+                className="balatro-btn balatro-btn--sm balatro-btn--ghost"
                 style={{
+                  "--btn-color": "#3a3f48",
+                  "--btn-shadow": "#20232a",
                   fontSize: 12,
-                  background: "none",
-                  border: "1px solid var(--border-light)",
                   color: "var(--text-secondary)",
                   borderRadius: 6,
                   padding: "3px 8px",
-                  cursor: "pointer",
                   fontFamily: "var(--font-balatro)",
                 }}
               >
@@ -242,14 +297,14 @@ export default function Sidebar({
               </button>
               <button
                 onClick={disableAll}
+                className="balatro-btn balatro-btn--sm balatro-btn--ghost"
                 style={{
+                  "--btn-color": "#3a3f48",
+                  "--btn-shadow": "#20232a",
                   fontSize: 12,
-                  background: "none",
-                  border: "1px solid var(--border-light)",
                   color: "var(--text-secondary)",
                   borderRadius: 6,
                   padding: "3px 8px",
-                  cursor: "pointer",
                   fontFamily: "var(--font-balatro)",
                 }}
               >
@@ -261,9 +316,13 @@ export default function Sidebar({
           {/* Item checkboxes */}
           {items.map((item) => {
             const off = !!disabled[item.id];
+            const swatch =
+              (mode === "stakes" ? STAKE_COLORS : DECK_COLORS)[item.id]?.bg ||
+              "#888";
             return (
               <label
                 key={item.id}
+                className="sidebar-row"
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -274,6 +333,7 @@ export default function Sidebar({
                   marginBottom: 2,
                   background: off ? "transparent" : "rgba(255,255,255,0.025)",
                   opacity: off ? 0.35 : 1,
+                  borderLeft: `3px solid ${off ? "transparent" : swatch}`,
                   transition: "all 0.15s",
                 }}
               >
@@ -294,7 +354,13 @@ export default function Sidebar({
                 {/* Mini sprite preview */}
                 {mode === "stakes" ? (
                   <ChipSprite chipX={item.chipX} chipY={item.chipY} size={26} />
-                ) : null}
+                ) : (
+                  <DeckSprite
+                    spriteX={item.spriteX}
+                    spriteY={item.spriteY}
+                    width={20}
+                  />
+                )}
                 <span
                   style={{
                     fontSize: 15,
@@ -326,6 +392,7 @@ export default function Sidebar({
               {customs.map((name) => (
                 <div
                   key={name}
+                  className="sidebar-row"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -339,7 +406,9 @@ export default function Sidebar({
                 >
                   {mode === "stakes" ? (
                     <ChipSprite chipX={9} size={22} isWildcard />
-                  ) : null}
+                  ) : (
+                    <DeckSprite spriteX={0} spriteY={0} width={18} isWildcard />
+                  )}
                   <span style={{ flex: 1, fontSize: 14, color: "#bb8fce" }}>
                     {name}
                   </span>
@@ -384,13 +453,13 @@ export default function Sidebar({
             />
             <button
               onClick={handleAdd}
+              className="balatro-btn balatro-btn--sm balatro-btn--ghost"
               style={{
+                "--btn-color": mode === "stakes" ? "var(--accent-red)" : "var(--accent-blue)",
+                "--btn-shadow": mode === "stakes" ? "var(--accent-red-dark)" : "var(--accent-blue-dark)",
                 padding: "8px 14px",
                 borderRadius: 8,
-                border: "1px solid var(--border-light)",
-                background: "rgba(255,255,255,0.06)",
                 color: "#fff",
-                cursor: "pointer",
                 fontSize: 20,
                 fontFamily: "var(--font-balatro)",
                 lineHeight: 1,
@@ -457,7 +526,10 @@ export default function Sidebar({
       {/* Toggle button */}
       <button
         onClick={onToggle}
+        className="balatro-btn balatro-btn--sm balatro-btn--ghost"
         style={{
+          "--btn-color": "#3a3f48",
+          "--btn-shadow": "#20232a",
           position: "fixed",
           top: 18,
           left: isOpen ? 340 : 12,
@@ -465,15 +537,13 @@ export default function Sidebar({
           width: 38,
           height: 38,
           borderRadius: 8,
-          border: "1px solid var(--border-light)",
-          background: "rgba(13, 17, 23, 0.95)",
           color: "#fff",
-          cursor: "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: 18,
-          transition: "left 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition:
+            "left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease",
           fontFamily: "var(--font-balatro)",
         }}
       >
