@@ -106,19 +106,20 @@ const FLOATING_SUITS = [
 ];
 
 // Static layered-gradient look modeled on majorleaguebalatro.com's own
-// background: a diagonal base wash plus scattered radial "nebula" blobs.
-// Their original CSS relies on farthest-corner sizing tuned for a much
-// smaller container; explicit percentage sizes keep the blobs reading as
-// distinct glows instead of washing out over a full viewport.
+// background: mostly a smooth diagonal wash, with a couple of very soft
+// blobs for depth — their reference screenshots show a calm gradient, not
+// distinct color patches.
 const NEBULA_BACKGROUND = [
-  "radial-gradient(ellipse 45% 55% at 15% 80%, rgba(30,80,180,0.55), transparent 70%)",
-  "radial-gradient(ellipse 40% 45% at 78% 12%, rgba(170,40,130,0.5), transparent 70%)",
-  "radial-gradient(ellipse 50% 55% at 90% 75%, rgba(150,25,45,0.55), transparent 70%)",
-  "radial-gradient(ellipse 45% 50% at 50% 55%, rgba(25,70,170,0.4), transparent 70%)",
-  "radial-gradient(ellipse 40% 45% at 15% 15%, rgba(15,50,110,0.6), transparent 70%)",
-  "radial-gradient(ellipse 45% 50% at 85% 90%, rgba(130,25,85,0.45), transparent 70%)",
+  "radial-gradient(ellipse 55% 60% at 15% 85%, rgba(30,80,180,0.22), transparent 70%)",
+  "radial-gradient(ellipse 55% 60% at 88% 10%, rgba(150,30,110,0.18), transparent 70%)",
   "linear-gradient(135deg, #0a1a3a 0%, #1a3a6a 25%, #2a1a4a 50%, #6a1020 75%, #4a0a1a 100%)",
 ].join(", ");
+
+// Dashed grid-line texture, matching the faint graph-paper look over their
+// background — tiled "L" shapes (top + left edge) build the full grid.
+const GRID_TILE_SIZE = 60;
+const GRID_OVERLAY_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='${GRID_TILE_SIZE}' height='${GRID_TILE_SIZE}'><path d='M${GRID_TILE_SIZE} 0H0V${GRID_TILE_SIZE}' fill='none' stroke='rgba(255,255,255,0.16)' stroke-width='1' stroke-dasharray='2 4'/></svg>`;
+const GRID_OVERLAY_URL = `url("data:image/svg+xml,${encodeURIComponent(GRID_OVERLAY_SVG)}")`;
 
 export default function BalatroBackground({ variant = "shader" }) {
   const canvasRef = useRef(null);
@@ -209,16 +210,28 @@ export default function BalatroBackground({ variant = "shader" }) {
           }}
         />
       ) : (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 0,
-            pointerEvents: "none",
-            background: NEBULA_BACKGROUND,
-            animation: "nebulaDrift 20s ease-in-out infinite",
-          }}
-        />
+        <>
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 0,
+              pointerEvents: "none",
+              background: NEBULA_BACKGROUND,
+            }}
+          />
+          {/* Dashed grid-line texture, matching majorleaguebalatro.com */}
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 0,
+              pointerEvents: "none",
+              backgroundImage: GRID_OVERLAY_URL,
+              backgroundSize: `${GRID_TILE_SIZE}px ${GRID_TILE_SIZE}px`,
+            }}
+          />
+        </>
       )}
 
       {/* Ambient floating suit glyphs for depth */}

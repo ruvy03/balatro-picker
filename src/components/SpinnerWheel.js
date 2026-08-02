@@ -23,7 +23,6 @@ function getItemColor(item, mode) {
 export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
   const containerRef = useRef(null);
   const wheelRef = useRef(null);
-  const pointerRef = useRef(null);
   const spinningRef = useRef(false);
   const [spinning, setSpinningState] = useState(false);
   const [ready, setReady] = useState(false);
@@ -154,15 +153,14 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
     }
   }, [musicEnabled, stopSpinAudio]);
 
-  // Confetti burst centered on the wheel, colored to match the winning item
+  // Confetti burst centered on the result modal, colored to match the
+  // winning item. The modal is always centered on the full viewport
+  // (fixed + inset:0), regardless of the sidebar — so we target that same
+  // point rather than the wheel's own position, which shifts right of
+  // viewport-center whenever the sidebar is open.
   const fireConfetti = useCallback((colorHex) => {
-    const el = containerRef.current;
-    if (!el || typeof window === "undefined") return;
-    const rect = el.getBoundingClientRect();
-    const origin = {
-      x: (rect.left + rect.width / 2) / window.innerWidth,
-      y: (rect.top + rect.height / 2) / window.innerHeight,
-    };
+    if (typeof window === "undefined") return;
+    const origin = { x: 0.5, y: 0.5 };
     confetti({
       particleCount: 110,
       spread: 100,
@@ -238,13 +236,6 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
         rotationSpeedMax: 800,
         isInteractive: false,
         pixelRatio: 0,
-        onCurrentIndexChange: () => {
-          const el = pointerRef.current;
-          if (!el) return;
-          el.classList.remove("tick-punch");
-          void el.offsetWidth;
-          el.classList.add("tick-punch");
-        },
         onRest: (e) => {
           spinningRef.current = false;
           setSpinningState(false);
@@ -458,14 +449,18 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
         <div
           style={{
             position: "absolute",
-            top: -22,
+            top: -32,
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 20,
             filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.6))",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
           }}
         >
-          <div ref={pointerRef} className="pointer-gem" />
+          <div className="pointer-bead" />
+          <div className="pointer-gem" />
         </div>
       </div>
 
