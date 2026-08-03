@@ -323,11 +323,13 @@ export default function SpinnerWheel({ items, mode, onResult, musicEnabled }) {
       <div
         style={{
           position: "relative",
-          width: 480,
-          height: 480,
-          maxWidth: "85vw",
-          maxHeight: "55vh",
-          aspectRatio: "1 / 1",
+          // width/height must resolve to the *same* value on every axis —
+          // independent maxWidth (vw) / maxHeight (vh) clamps can pick
+          // different pixel values on small/short screens and turn the
+          // circle into an oval, since aspect-ratio only fills in a missing
+          // dimension and doesn't apply once both width and height are set.
+          width: "min(480px, 85vw, 55vh)",
+          height: "min(480px, 85vw, 55vh)",
           animation: "popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
         }}
       >
